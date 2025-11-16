@@ -28,25 +28,24 @@ const App = () => (
         <Routes>
           {/* ✅ PÁGINA INICIAL */}
           <Route path="/" element={<Index />} />
-          
+
           {/* ✅ CADASTRO DE LAR */}
-          <Route path="/cadastrar-lar" element={<RegisterHome />} />
-          
+          <Route path="/cadastrar" element={<RegisterHome />} />
+
           {/* ✅ LARES - LISTAGEM E DETALHES */}
           <Route path="/lares" element={<HomesList />} />
-          <Route path="/lares/:id" element={<HomeDetails />} />
-          <Route path="/editar-lar/:id" element={<EditHome />} />
-          
+          <Route path="/lar/:id" element={<HomeDetails />} />
+          <Route path="/editar/:id" element={<EditHome />} />
+          <Route path="/solicitar/:id" element={<RequestStay />} />
+
           {/* ✅ SOLICITAÇÕES */}
-          <Route path="/solicitar-estadia/:id" element={<RequestStay />} />
-          <Route path="/solicitacoes" element={<Navigate to="/solicitacoes-login" replace />} />
           <Route path="/solicitacoes-login" element={<SolicitacoesLogin />} />
-          <Route path="/solicitacoes-lista" element={<SolicitacoesList />} />
-          <Route path="/solicitacoes/:id" element={<SolicitacoesDetalhes />} />
-          
+          <Route path="/solicitacoes/:email" element={<SolicitacoesList />} />
+          <Route path="/solicitacoes/detalhes/:id" element={<SolicitacoesDetalhes />} /> {/* ✅ CORRIGIDO */}
+
           {/* ✅ AUMIGOS */}
           <Route path="/aumigos" element={<AumigosList />} />
-          
+
           {/* ✅ PÁGINA 404 - DEVE SER A ÚLTIMA ROTA */}
           <Route path="*" element={<NotFound />} />
         </Routes>
