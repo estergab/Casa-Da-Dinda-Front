@@ -122,7 +122,6 @@ const RegisterHome: React.FC = () => {
           toast.error("Senha incorreta");
           return;
         }
-
         toast.success("Autenticação bem-sucedida! Criando novo lar...");
       } catch (error: any) {
         console.error("Erro na autenticação:", error);
@@ -184,38 +183,43 @@ const RegisterHome: React.FC = () => {
   return (
     <>
       <Navbar />
-      <div className="container max-w-4xl mx-auto px-4 py-8">
-        <Button variant="ghost" onClick={() => navigate(-1)} className="mb-6">
+      <div className="container mx-auto px-4 py-8">
+        {/* ✅ BOTÃO VOLTAR MOVIDO PARA DENTRO DO CONTAINER */}
+        <Button 
+          variant="outline" 
+          onClick={() => navigate(-1)} 
+          className="mb-6"
+        >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Voltar
         </Button>
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Home className="h-6 w-6" />
-              Cadastrar Lar Temporário
-            </CardTitle>
+            <CardTitle>Cadastrar Lar Temporário</CardTitle>
             <CardDescription>
               Preencha as informações para oferecer um lar temporário.
             </CardDescription>
           </CardHeader>
-
           <CardContent>
             <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
               {/* Informações Pessoais */}
               <div>
                 <h3 className="text-lg font-semibold mb-4">Suas Informações</h3>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
                     <Label htmlFor="name">Nome Completo *</Label>
-                    <Input id="name" {...register("name")} placeholder="Seu nome" />
+                    <Input
+                      id="name"
+                      {...register("name")}
+                      placeholder="Seu nome completo"
+                    />
                     {errors.name && (
-                      <p className="text-sm text-red-500">{errors.name.message}</p>
+                      <p className="text-sm text-red-500 mt-1">{errors.name.message}</p>
                     )}
                   </div>
 
-                  <div className="space-y-2">
+                  <div>
                     <Label htmlFor="email">E-mail *</Label>
                     <Input
                       id="email"
@@ -225,15 +229,19 @@ const RegisterHome: React.FC = () => {
                       placeholder="seu@email.com"
                     />
                     {errors.email && (
-                      <p className="text-sm text-red-500">{errors.email.message}</p>
+                      <p className="text-sm text-red-500 mt-1">{errors.email.message}</p>
                     )}
                   </div>
 
-                  <div className="space-y-2">
+                  <div>
                     <Label htmlFor="phone">Telefone *</Label>
-                    <Input id="phone" {...register("phone")} placeholder="(00) 00000-0000" />
+                    <Input
+                      id="phone"
+                      {...register("phone")}
+                      placeholder="(00) 00000-0000"
+                    />
                     {errors.phone && (
-                      <p className="text-sm text-red-500">{errors.phone.message}</p>
+                      <p className="text-sm text-red-500 mt-1">{errors.phone.message}</p>
                     )}
                   </div>
                 </div>
@@ -242,28 +250,37 @@ const RegisterHome: React.FC = () => {
               {/* Endereço */}
               <div>
                 <h3 className="text-lg font-semibold mb-4">Endereço</h3>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2 md:col-span-2">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
                     <Label htmlFor="address">Endereço *</Label>
-                    <Input id="address" {...register("address")} placeholder="Rua, número" />
+                    <Input
+                      id="address"
+                      {...register("address")}
+                      placeholder="Rua, número, bairro"
+                    />
                     {errors.address && (
-                      <p className="text-sm text-red-500">{errors.address.message}</p>
+                      <p className="text-sm text-red-500 mt-1">{errors.address.message}</p>
                     )}
                   </div>
 
-                  <div className="space-y-2">
+                  <div>
                     <Label htmlFor="city">Cidade *</Label>
                     <Input id="city" {...register("city")} placeholder="Cidade" />
                     {errors.city && (
-                      <p className="text-sm text-red-500">{errors.city.message}</p>
+                      <p className="text-sm text-red-500 mt-1">{errors.city.message}</p>
                     )}
                   </div>
 
-                  <div className="space-y-2">
+                  <div>
                     <Label htmlFor="state">Estado *</Label>
-                    <Input id="state" {...register("state")} placeholder="SP" maxLength={2} />
+                    <Input
+                      id="state"
+                      {...register("state")}
+                      placeholder="SP"
+                      maxLength={2}
+                    />
                     {errors.state && (
-                      <p className="text-sm text-red-500">{errors.state.message}</p>
+                      <p className="text-sm text-red-500 mt-1">{errors.state.message}</p>
                     )}
                   </div>
                 </div>
@@ -273,150 +290,126 @@ const RegisterHome: React.FC = () => {
               <div>
                 <h3 className="text-lg font-semibold mb-4">Sobre o Lar</h3>
                 <div className="grid gap-4">
-                  <div className="space-y-2">
+                  <div>
                     <Label htmlFor="capacity">Capacidade (pets) *</Label>
                     <Input
                       id="capacity"
                       type="number"
                       {...register("capacity")}
-                      min={1}
-                      max={20}
-                      placeholder="Quantos pets pode hospedar?"
+                      placeholder="1"
+                      min="1"
+                      max="20"
                     />
                     {errors.capacity && (
-                      <p className="text-sm text-red-500">{errors.capacity.message}</p>
+                      <p className="text-sm text-red-500 mt-1">{errors.capacity.message}</p>
                     )}
                   </div>
 
                   <div>
-                    <Label className="mb-3 block">Características</Label>
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
+                    <Label className="text-base font-medium">Características</Label>
+                    <div className="flex flex-col gap-2 mt-2">
+                      <div className="flex items-center gap-2">
                         <Controller
                           name="hasYard"
                           control={control}
                           render={({ field }) => (
                             <Checkbox
-                              id="hasYard"
                               checked={field.value}
                               onCheckedChange={field.onChange}
                             />
                           )}
                         />
-                        <Label htmlFor="hasYard" className="cursor-pointer">
-                          Possui quintal
-                        </Label>
+                        <Label className="font-normal">Possui quintal</Label>
                       </div>
-
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-2">
                         <Controller
                           name="hasFence"
                           control={control}
                           render={({ field }) => (
                             <Checkbox
-                              id="hasFence"
                               checked={field.value}
                               onCheckedChange={field.onChange}
                             />
                           )}
                         />
-                        <Label htmlFor="hasFence" className="cursor-pointer">
-                          Quintal cercado
-                        </Label>
+                        <Label className="font-normal">Quintal cercado</Label>
                       </div>
                     </div>
                   </div>
 
                   <div>
-                    <Label className="mb-3 block">Aceita</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="flex items-center space-x-2">
+                    <Label className="text-base font-medium">Aceita</Label>
+                    <div className="flex flex-col gap-2 mt-2">
+                      <div className="flex items-center gap-2">
                         <Controller
                           name="acceptsDogs"
                           control={control}
                           render={({ field }) => (
                             <Checkbox
-                              id="acceptsDogs"
                               checked={field.value}
                               onCheckedChange={field.onChange}
                             />
                           )}
                         />
-                        <Label htmlFor="acceptsDogs" className="cursor-pointer">
-                          Cães
-                        </Label>
+                        <Label className="font-normal">Cães</Label>
                       </div>
-
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-2">
                         <Controller
                           name="acceptsCats"
                           control={control}
                           render={({ field }) => (
                             <Checkbox
-                              id="acceptsCats"
                               checked={field.value}
                               onCheckedChange={field.onChange}
                             />
                           )}
                         />
-                        <Label htmlFor="acceptsCats" className="cursor-pointer">
-                          Gatos
-                        </Label>
+                        <Label className="font-normal">Gatos</Label>
                       </div>
-
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-2">
                         <Controller
                           name="acceptsLargeDogs"
                           control={control}
                           render={({ field }) => (
                             <Checkbox
-                              id="acceptsLargeDogs"
                               checked={field.value}
                               onCheckedChange={field.onChange}
                             />
                           )}
                         />
-                        <Label htmlFor="acceptsLargeDogs" className="cursor-pointer">
-                          Cães de Grande Porte
-                        </Label>
+                        <Label className="font-normal">Cães de Grande Porte</Label>
                       </div>
-
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-2">
                         <Controller
                           name="acceptsPuppies"
                           control={control}
                           render={({ field }) => (
                             <Checkbox
-                              id="acceptsPuppies"
                               checked={field.value}
                               onCheckedChange={field.onChange}
                             />
                           )}
                         />
-                        <Label htmlFor="acceptsPuppies" className="cursor-pointer">
-                          Filhotes
-                        </Label>
+                        <Label className="font-normal">Filhotes</Label>
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
+                  <div>
                     <Label htmlFor="experience">Experiência com Pets</Label>
                     <Textarea
                       id="experience"
                       {...register("experience")}
-                      placeholder="Conte sobre sua experiência com animais"
-                      rows={3}
+                      placeholder="Descreva sua experiência..."
                     />
                   </div>
 
-                  <div className="space-y-2">
+                  <div>
                     <Label htmlFor="description">Descrição do Lar</Label>
                     <Textarea
                       id="description"
                       {...register("description")}
-                      placeholder="Descreva seu espaço e o que pode oferecer"
-                      rows={4}
+                      placeholder="Conte mais sobre o espaço..."
                     />
                   </div>
                 </div>
@@ -425,53 +418,43 @@ const RegisterHome: React.FC = () => {
               {/* Upload de Imagem */}
               <div>
                 <Label htmlFor="imageUpload">Foto do Espaço *</Label>
-                <div className="mt-2">
-                  <Controller
-                    name="image"
-                    control={control}
-                    render={({ field: { onChange, value, ...restField } }) => (
-                      <>
-                        <div
-                          className="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-primary transition-colors"
-                          onClick={() => document.getElementById('imageUpload')?.click()}
-                        >
-                          {imagePreview ? (
-                            <img
-                              src={imagePreview}
-                              alt="Preview"
-                              className="mx-auto max-h-64 rounded"
-                            />
-                          ) : (
-                            <div className="space-y-2">
-                              <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                              <p className="text-sm text-gray-600">
-                                Clique para fazer upload
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                        <input
-                          id="imageUpload"
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              onChange(file);
-                              setImagePreview(URL.createObjectURL(file));
-                            }
-                          }}
-                        />
-                      </>
-                    )}
-                  />
-                  {errors.image && (
-                    <p className="text-sm text-red-500 mt-1">
-                      {String(errors.image.message)}
-                    </p>
+                <Controller
+                  name="image"
+                  control={control}
+                  render={({ field: { onChange } }) => (
+                    <>
+                      <div
+                        className="mt-2 border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-orange-500 transition-colors"
+                        onClick={() => document.getElementById('imageUpload')?.click()}
+                      >
+                        {imagePreview ? (
+                          <img src={imagePreview} alt="Preview" className="mx-auto max-h-48 rounded" />
+                        ) : (
+                          <div className="flex flex-col items-center gap-2 text-gray-500">
+                            <Upload className="h-8 w-8" />
+                            <p className="text-sm">Clique para fazer upload</p>
+                          </div>
+                        )}
+                      </div>
+                      <input
+                        type="file"
+                        id="imageUpload"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            onChange(file);
+                            setImagePreview(URL.createObjectURL(file));
+                          }
+                        }}
+                      />
+                    </>
                   )}
-                </div>
+                />
+                {errors.image && (
+                  <p className="text-sm text-red-500 mt-1">{String(errors.image.message)}</p>
+                )}
               </div>
 
               <Button type="submit" className="w-full" disabled={isSubmitting}>
@@ -494,8 +477,8 @@ const RegisterHome: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
+          <div className="space-y-4">
+            <div>
               <Label htmlFor="password">Senha</Label>
               <div className="relative">
                 <Input
@@ -505,20 +488,18 @@ const RegisterHome: React.FC = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Digite sua senha"
                 />
-                <Button
+                <button
                   type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3"
                   onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
+                </button>
               </div>
             </div>
 
             {isNewUser && (
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="confirmPassword">Confirmar Senha</Label>
                 <div className="relative">
                   <Input
@@ -528,15 +509,13 @@ const RegisterHome: React.FC = () => {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirme sua senha"
                   />
-                  <Button
+                  <button
                     type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2"
                   >
                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
+                  </button>
                 </div>
               </div>
             )}
