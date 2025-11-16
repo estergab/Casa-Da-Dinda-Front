@@ -1,34 +1,25 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, PawPrint, Calendar, User, Phone, Mail, Trash2, Check, X } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
+import { ArrowLeft, Check, X, Calendar, User, Mail, Phone, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { Separator } from "@/components/ui/separator";
 import Navbar from "@/components/Navbar";
 import api from "@/services/api";
+import { getUploadUrl } from "@/config/api"; // ✅ ADICIONAR
 import { toast } from "sonner";
 
 interface Solicitacao {
+  id: string;
   _id: string;
-  id: string; // ✅ UUID
   homeId: string;
   hostEmail: string;
   requesterName: string;
   requesterEmail: string;
   requesterPhone: string;
   petName: string;
-  petType: string;
+  petType: "dog" | "cat";
   petAge?: string;
   petSize?: string;
   healthConditions?: string;
@@ -37,433 +28,320 @@ interface Solicitacao {
   startDate?: string;
   duration?: string;
   message?: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: "pending" | "approved" | "rejected";
   createdAt: string;
 }
 
 const SolicitacoesDetalhes = () => {
-  const { id } = useParams(); // ✅ UUID da URL
+  const { id } = useParams();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  
   const [solicitacao, setSolicitacao] = useState<Solicitacao | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const loggedUserEmail = 
-    searchParams.get("email") || 
-    localStorage.getItem("userEmail") || 
-    "";
-
-  console.log("👤 Email do usuário logado:", loggedUserEmail);
-
   useEffect(() => {
-    if (!id) {
-      toast.error("ID da solicitação não fornecido");
-      navigate("/solicitacoes");
-      return;
-    }
-
     const fetchSolicitacao = async () => {
       try {
         setIsLoading(true);
-        console.log("🔍 Buscando solicitação:", id);
-
         const response = await api.get(`/solicitacoes/${id}`);
-        
-        console.log("✅ Solicitação carregada:", response.data);
-        
-        const solicitacaoData = response.data.data || response.data;
-        setSolicitacao(solicitacaoData);
-
-        console.log("📧 Email da solicitação (tutor):", solicitacaoData.requesterEmail);
-        console.log("🏠 Email do anfitrião:", solicitacaoData.hostEmail);
-        console.log("👤 Email do usuário:", loggedUserEmail);
-      } catch (error: any) {
-        console.error("❌ Erro ao buscar solicitação:", error);
+        const data = response.data.data || response.data;
+        setSolicitacao(data);
+      } catch (error) {
+        console.error("Erro ao carregar solicitação:", error);
         toast.error("Erro ao carregar detalhes da solicitação");
-        navigate("/solicitacoes");
+        navigate(-1);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchSolicitacao();
+    if (id) fetchSolicitacao();
   }, [id, navigate]);
 
-  // ✅ CANCELAR SOLICITAÇÃO (apenas tutor)
-  const handleCancelarSolicitacao = async () => {
-    if (!id) return; // ✅ Usar `id` da URL
-
-    try {
-      setIsDeleting(true);
-      console.log("🗑️ Cancelando solicitação:", id);
-
-      await api.delete(`/solicitacoes/${id}`); // ✅ Usar `id`
-
-      toast.success("Solicitação cancelada com sucesso!");
-      
-      setTimeout(() => {
-        navigate(`/solicitacoes/lista?email=${encodeURIComponent(loggedUserEmail)}`);
-      }, 1000);
-    } catch (error: any) {
-      console.error("❌ Erro ao cancelar solicitação:", error);
-      toast.error("Erro ao cancelar solicitação", {
-        description: error.response?.data?.message || "Tente novamente.",
-      });
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  // ✅ ACEITAR SOLICITAÇÃO (apenas anfitrião)
-  const handleAceitarSolicitacao = async () => {
-    if (!id) return; // ✅ Usar `id` da URL
+  const handleAceitar = async () => {
+    if (!solicitacao) return;
 
     try {
       setIsProcessing(true);
-      console.log("✅ Aceitando solicitação:", id);
-
-      await api.patch(`/solicitacoes/${id}/aceitar`); // ✅ Usar `id`
-
-      toast.success("Solicitação aprovada com sucesso! 🎉");
-      
-      if (solicitacao) {
-        setSolicitacao({ ...solicitacao, status: 'approved' });
-      }
+      await api.patch(`/solicitacoes/${solicitacao._id || solicitacao.id}/aceitar`);
+      toast.success("Solicitação aceita!");
+      setSolicitacao({ ...solicitacao, status: "approved" });
     } catch (error: any) {
-      console.error("❌ Erro ao aceitar solicitação:", error);
-      toast.error("Erro ao aprovar solicitação", {
-        description: error.response?.data?.message || "Tente novamente.",
-      });
+      console.error("Erro ao aceitar:", error);
+      toast.error(error.response?.data?.message || "Erro ao aceitar solicitação");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // ✅ NEGAR SOLICITAÇÃO (apenas anfitrião)
-  const handleNegarSolicitacao = async () => {
-    if (!id) return; // ✅ Usar `id` da URL
+  const handleNegar = async () => {
+    if (!solicitacao) return;
 
     try {
       setIsProcessing(true);
-      console.log("❌ Negando solicitação:", id);
-
-      await api.patch(`/solicitacoes/${id}/negar`); // ✅ Usar `id`
-
-      toast.success("Solicitação negada.");
-      
-      if (solicitacao) {
-        setSolicitacao({ ...solicitacao, status: 'rejected' });
-      }
+      await api.patch(`/solicitacoes/${solicitacao._id || solicitacao.id}/negar`);
+      toast.success("Solicitação negada");
+      setSolicitacao({ ...solicitacao, status: "rejected" });
     } catch (error: any) {
-      console.error("❌ Erro ao negar solicitação:", error);
-      toast.error("Erro ao negar solicitação", {
-        description: error.response?.data?.message || "Tente novamente.",
-      });
+      console.error("Erro ao negar:", error);
+      toast.error(error.response?.data?.message || "Erro ao negar solicitação");
     } finally {
       setIsProcessing(false);
     }
   };
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return "Não informada";
-    return new Date(dateString).toLocaleDateString("pt-BR");
+    if (!dateString) return "Não informado";
+    try {
+      return new Date(dateString).toLocaleDateString("pt-BR");
+    } catch {
+      return dateString;
+    }
   };
 
-  const isTutor = solicitacao 
-    ? solicitacao.requesterEmail.toLowerCase() === loggedUserEmail.toLowerCase()
-    : false;
-
-  const isHost = solicitacao
-    ? solicitacao.hostEmail.toLowerCase() === loggedUserEmail.toLowerCase()
-    : false;
-
-  console.log("🔍 É tutor?", isTutor);
-  console.log("🔍 É anfitrião?", isHost);
-
-  const getStatusBadge = () => {
-    if (!solicitacao) return null;
-
-    switch (solicitacao.status) {
-      case 'approved':
-        return <Badge className="bg-green-500 hover:bg-green-600">✅ Aprovada</Badge>;
-      case 'rejected':
-        return <Badge className="bg-red-500 hover:bg-red-600">❌ Negada</Badge>;
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "pending":
+        return <Badge variant="outline" className="bg-yellow-50">Pendente</Badge>;
+      case "approved":
+        return <Badge variant="outline" className="bg-green-50 text-green-700">Aceita</Badge>;
+      case "rejected":
+        return <Badge variant="outline" className="bg-red-50 text-red-700">Negada</Badge>;
       default:
-        return <Badge variant="secondary">⏳ Aguardando decisão</Badge>;
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
+      <>
         <Navbar />
-        <div className="container mx-auto px-4 pt-24 pb-12">
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-            <p className="text-muted-foreground mt-4">Carregando detalhes...</p>
-          </div>
+        <div className="container mx-auto px-4 py-8">
+          <p className="text-center">Carregando detalhes...</p>
         </div>
-      </div>
+      </>
     );
   }
 
   if (!solicitacao) {
     return (
-      <div className="min-h-screen bg-background">
+      <>
         <Navbar />
-        <div className="container mx-auto px-4 pt-24 pb-12">
-          <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground text-lg mb-4">
-                Solicitação não encontrada
-              </p>
-              <Button onClick={() => navigate("/solicitacoes")}>
-                Voltar
-              </Button>
-            </CardContent>
-          </Card>
+        <div className="container mx-auto px-4 py-8 text-center">
+          <p className="text-gray-500 mb-4">Solicitação não encontrada</p>
+          <Button onClick={() => navigate(-1)}>Voltar</Button>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
       <Navbar />
-      <div className="container mx-auto px-4 pt-24 pb-12">
+      <div className="container max-w-4xl mx-auto px-4 py-8">
+        <Button variant="ghost" onClick={() => navigate(-1)} className="mb-6">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Voltar
+        </Button>
+
+        {/* Header com Status */}
         <div className="flex items-center justify-between mb-6">
-          <Button variant="ghost" onClick={() => navigate(-1)}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar
-          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">Detalhes da Solicitação</h1>
+            <p className="text-gray-600">Pet: {solicitacao.petName}</p>
+          </div>
+          {getStatusBadge(solicitacao.status)}
+        </div>
 
-          <div className="flex items-center gap-3">
-            {getStatusBadge()}
+        <div className="grid md:grid-cols-3 gap-6">
+          {/* Coluna Principal */}
+          <div className="md:col-span-2 space-y-6">
+            {/* Card do Pet */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Informações do Pet</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {solicitacao.petImageUrl && (
+                  <div className="mb-4">
+                    <img
+                      src={getUploadUrl(solicitacao.petImageUrl)} // ✅ USAR getUploadUrl
+                      alt={solicitacao.petName}
+                      className="w-full h-64 object-cover rounded-lg"
+                    />
+                  </div>
+                )}
 
-            {/* ✅ BOTÕES ACEITAR/NEGAR - APENAS ANFITRIÃO + STATUS PENDING */}
-            {isHost && solicitacao.status === 'pending' && (
-              <>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">Nome</p>
+                    <p className="font-medium">{solicitacao.petName}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-sm text-gray-500">Tipo</p>
+                    <p className="font-medium">
+                      {solicitacao.petType === "dog" ? "Cão" : "Gato"}
+                    </p>
+                  </div>
+
+                  {solicitacao.petAge && (
+                    <div>
+                      <p className="text-sm text-gray-500">Idade</p>
+                      <p className="font-medium">{solicitacao.petAge}</p>
+                    </div>
+                  )}
+
+                  {solicitacao.petSize && (
+                    <div>
+                      <p className="text-sm text-gray-500">Porte</p>
+                      <p className="font-medium">{solicitacao.petSize}</p>
+                    </div>
+                  )}
+                </div>
+
+                {solicitacao.healthConditions && (
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Condições de Saúde</p>
+                    <p className="text-gray-700">{solicitacao.healthConditions}</p>
+                  </div>
+                )}
+
+                {solicitacao.behavior && (
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Comportamento</p>
+                    <p className="text-gray-700">{solicitacao.behavior}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Detalhes da Estadia */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Detalhes da Estadia</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  {solicitacao.startDate && (
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-gray-500" />
+                      <div>
+                        <p className="text-sm text-gray-500">Data de Início</p>
+                        <p className="font-medium">{formatDate(solicitacao.startDate)}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {solicitacao.duration && (
+                    <div>
+                      <p className="text-sm text-gray-500">Duração Estimada</p>
+                      <p className="font-medium">{solicitacao.duration}</p>
+                    </div>
+                  )}
+                </div>
+
+                {solicitacao.message && (
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Mensagem</p>
+                    <p className="text-gray-700 bg-gray-50 p-3 rounded">
+                      {solicitacao.message}
+                    </p>
+                  </div>
+                )}
+
+                <Separator />
+
+                <div className="text-sm text-gray-500">
+                  Enviada em {formatDate(solicitacao.createdAt)}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Coluna Lateral - Informações do Solicitante */}
+          <div>
+            <Card className="sticky top-4">
+              <CardHeader>
+                <CardTitle>Solicitante</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-gray-500" />
+                  <div>
+                    <p className="text-sm text-gray-500">Nome</p>
+                    <p className="font-medium">{solicitacao.requesterName}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-gray-500" />
+                  <div>
+                    <p className="text-sm text-gray-500">Email</p>
+                    <p className="font-medium break-all text-sm">
+                      {solicitacao.requesterEmail}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-gray-500" />
+                  <div>
+                    <p className="text-sm text-gray-500">Telefone</p>
+                    <p className="font-medium">{solicitacao.requesterPhone}</p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Ações */}
+                {solicitacao.status === "pending" && (
+                  <div className="space-y-2">
                     <Button
-                      className="bg-green-600 hover:bg-green-700"
+                      className="w-full bg-green-600 hover:bg-green-700"
+                      onClick={handleAceitar}
                       disabled={isProcessing}
                     >
                       <Check className="mr-2 h-4 w-4" />
-                      Aceitar
+                      Aceitar Solicitação
                     </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Aceitar Solicitação?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Você confirma que pode receber <strong>{solicitacao.petName}</strong> no seu lar temporário?
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleAceitarSolicitacao}
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        {isProcessing ? "Processando..." : "Sim, aceitar"}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
 
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
                     <Button
-                      variant="destructive"
+                      variant="outline"
+                      className="w-full text-red-600 hover:bg-red-50"
+                      onClick={handleNegar}
                       disabled={isProcessing}
                     >
                       <X className="mr-2 h-4 w-4" />
-                      Negar
+                      Negar Solicitação
                     </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Negar Solicitação?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Tem certeza que não pode receber <strong>{solicitacao.petName}</strong>? Esta ação não pode ser desfeita.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleNegarSolicitacao}
-                        className="bg-destructive hover:bg-destructive/90"
-                      >
-                        {isProcessing ? "Processando..." : "Sim, negar"}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </>
-            )}
+                  </div>
+                )}
 
-            {/* ✅ BOTÃO CANCELAR - APENAS TUTOR + STATUS PENDING */}
-            {isTutor && solicitacao.status === 'pending' && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" disabled={isDeleting}>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Cancelar Solicitação
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Esta ação não pode ser desfeita. A solicitação será permanentemente removida
-                      e o anfitrião não a verá mais.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Não, manter</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleCancelarSolicitacao}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      {isDeleting ? "Cancelando..." : "Sim, cancelar"}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
+                {solicitacao.status === "approved" && (
+                  <div className="text-center p-4 bg-green-50 rounded">
+                    <Check className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                    <p className="text-green-700 font-medium">Solicitação Aceita</p>
+                    <p className="text-sm text-green-600 mt-1">
+                      Entre em contato com o solicitante
+                    </p>
+                  </div>
+                )}
+
+                {solicitacao.status === "rejected" && (
+                  <div className="text-center p-4 bg-red-50 rounded">
+                    <X className="h-8 w-8 text-red-600 mx-auto mb-2" />
+                    <p className="text-red-700 font-medium">Solicitação Negada</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
-        </div>
-
-        {/* IMAGEM NO TOPO */}
-        {solicitacao.petImageUrl && (
-          <div className="relative w-full h-96 rounded-lg overflow-hidden mb-8">
-            <img
-              src={`http://localhost:3335${solicitacao.petImageUrl}`}
-              alt={solicitacao.petName}
-              className="w-full h-full object-contain bg-muted"
-            />
-          </div>
-        )}
-
-        {/* TÍTULO E BADGE */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2 flex items-center gap-3">
-            <PawPrint className="h-8 w-8 text-primary" />
-            {solicitacao.petName}
-          </h1>
-          <Badge variant="secondary" className="text-base">
-            {solicitacao.petType === "dog" ? "Cão" : "Gato"}
-          </Badge>
-        </div>
-
-        {/* CARDS DAS INFORMAÇÕES */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Informações do Pet */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Informações do Pet</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {solicitacao.petAge && (
-                <div>
-                  <p className="text-sm font-medium">Idade</p>
-                  <p className="text-muted-foreground">{solicitacao.petAge}</p>
-                </div>
-              )}
-              {solicitacao.petSize && (
-                <div>
-                  <p className="text-sm font-medium">Porte</p>
-                  <p className="text-muted-foreground">{solicitacao.petSize}</p>
-                </div>
-              )}
-              {solicitacao.healthConditions && (
-                <div>
-                  <p className="text-sm font-medium">Condições de Saúde</p>
-                  <p className="text-muted-foreground">{solicitacao.healthConditions}</p>
-                </div>
-              )}
-              {solicitacao.behavior && (
-                <div>
-                  <p className="text-sm font-medium">Comportamento</p>
-                  <p className="text-muted-foreground">{solicitacao.behavior}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Informações do Tutor */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Informações do Tutor</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-3">
-                <User className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Nome</p>
-                  <p className="text-muted-foreground">{solicitacao.requesterName}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Mail className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">E-mail</p>
-                  <a href={`mailto:${solicitacao.requesterEmail}`} className="text-primary hover:underline">
-                    {solicitacao.requesterEmail}
-                  </a>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Phone className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Telefone</p>
-                  <a href={`tel:${solicitacao.requesterPhone}`} className="text-primary hover:underline">
-                    {solicitacao.requesterPhone}
-                  </a>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Detalhes da Estadia */}
-          <Card className="md:col-span-2">
-            <CardHeader>
-              <CardTitle>Detalhes da Estadia</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-3">
-                <Calendar className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Data de Início</p>
-                  <p className="text-muted-foreground">{formatDate(solicitacao.startDate)}</p>
-                </div>
-              </div>
-              {solicitacao.duration && (
-                <div>
-                  <p className="text-sm font-medium">Duração Estimada</p>
-                  <p className="text-muted-foreground">{solicitacao.duration}</p>
-                </div>
-              )}
-              {solicitacao.message && (
-                <div>
-                  <p className="text-sm font-medium">Mensagem</p>
-                  <p className="text-muted-foreground leading-relaxed">{solicitacao.message}</p>
-                </div>
-              )}
-              <div>
-                <p className="text-sm font-medium">Enviada em</p>
-                <p className="text-muted-foreground">{formatDate(solicitacao.createdAt)}</p>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
 export default SolicitacoesDetalhes;
+
