@@ -21,15 +21,14 @@ import {
 import { toast } from "sonner";
 import Navbar from "@/components/Navbar";
 import api from "@/services/api";
-import { getUploadUrl } from "@/config/api"; // ✅ ADICIONAR
-import * as z from "zod";
+import { z } from "zod";
 
-const requestStaySchema = z.object({
-  requesterName: z.string().min(1, "Nome é obrigatório"),
-  requesterEmail: z.string().email("Email inválido"),
+const requestSchema = z.object({
+  requesterName: z.string().min(3, "Nome deve ter no mínimo 3 caracteres"),
+  requesterEmail: z.string().email("E-mail inválido"),
   requesterPhone: z.string().min(10, "Telefone inválido"),
-  petName: z.string().min(1, "Nome do pet é obrigatório"),
-  petType: z.enum(["dog", "cat"], { required_error: "Selecione o tipo de pet" }),
+  petName: z.string().min(2, "Nome do pet inválido"),
+  petType: z.enum(["dog", "cat"], { required_error: "Selecione o tipo do pet" }),
   petAge: z.string().optional(),
   petSize: z.string().optional(),
   healthConditions: z.string().optional(),
@@ -40,37 +39,29 @@ const requestStaySchema = z.object({
   petImage: z.instanceof(File).optional(),
 });
 
-type RequestStayFormData = z.infer<typeof requestStaySchema>;
+type RequestForm = z.infer<typeof requestSchema>;
+
+interface Home {
+  _id: string;
+  hostName: string;
+  email: string;
+  phone: string;
+  city: string;
+  state: string;
+  imageUrl?: string;
+}
 
 const RequestStay: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [home, setHome] = useState<any>(null);
+  const [home, setHome] = useState<Home | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [isNewTutor, setIsNewTutor] = useState(false);
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [pendingFormData, setPendingFormData] = useState<RequestStayFormData | null>(null);
-  const [pendingImage, setPendingImage] = useState<File | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const form = useForm<RequestStayFormData>({
-    resolver: zodResolver(requestStaySchema),
+  const form = useForm<RequestForm>({
+    resolver: zodResolver(requestSchema),
     defaultValues: {
-      requesterName: "",
-      requesterEmail: "",
-      requesterPhone: "",
-      petName: "",
-      petType: "dog",
-      petAge: "",
-      petSize: "",
-      healthConditions: "",
-      behavior: "",
-      startDate: "",
-      duration: "",
-      message: "",
+      petType: undefined,
     },
   });
 
@@ -78,109 +69,54 @@ const RequestStay: React.FC = () => {
     const fetchHome = async () => {
       try {
         const response = await api.get(`/lares/${id}`);
-        const larData = response.data.data || response.data;
-        setHome(larData);
+        setHome(response.data.data || response.data);
       } catch (error) {
         console.error("Erro ao buscar lar:", error);
         toast.error("Erro ao carregar informações do lar");
+        navigate("/lares");
+      } finally {
+        setIsLoading(false);
       }
     };
 
     if (id) fetchHome();
-  }, [id]);
+  }, [id, navigate]);
 
-  const handleEmailBlur = async () => {
-    const email = form.getValues("requesterEmail");
-    if (!email) return;
-
-    try {
-      const response = await api.get(`/solicitacoes/check-tutor-email/${email.toLowerCase()}`);
-      if (response.data.exists) {
-        setIsNewTutor(false);
-      } else {
-        setIsNewTutor(true);
-      }
-    } catch (error) {
-      console.error("Erro ao verificar email:", error);
-    }
-  };
-
-  const onSubmit = async (data: RequestStayFormData) => {
-    console.log("✅ FORMULÁRIO VÁLIDO! Abrindo modal de senha...");
-    setPendingFormData(data);
-    setPendingImage(data.petImage || null);
-    setShowPasswordModal(true);
-  };
-
-  const handlePasswordSubmit = async () => {
-    if (!pendingFormData) return;
-
-    if (isNewTutor) {
-      if (password.length < 6) {
-        toast.error("A senha deve ter no mínimo 6 caracteres");
-        return;
-      }
-      if (password !== confirmPassword) {
-        toast.error("As senhas não coincidem");
-        return;
-      }
-    } else {
-      try {
-        const authResponse = await api.post('/solicitacoes/authenticate-tutor', {
-          email: pendingFormData.requesterEmail.toLowerCase(),
-          password: password
-        });
-
-        if (!authResponse.data.success) {
-          toast.error("Senha incorreta");
-          return;
-        }
-
-        toast.success("Autenticação bem-sucedida! Criando solicitação...");
-      } catch (error: any) {
-        console.error("Erro na autenticação:", error);
-        toast.error(error.response?.data?.message || "Senha incorreta");
-        return;
-      }
-    }
+  const onSubmit = async (data: RequestForm) => {
+    if (!home) return;
 
     try {
       const formData = new FormData();
-      formData.append("homeId", id || "");
-      formData.append("requesterName", pendingFormData.requesterName);
-      formData.append("requesterEmail", pendingFormData.requesterEmail.toLowerCase());
-      formData.append("requesterPassword", password);
-      formData.append("requesterPhone", pendingFormData.requesterPhone);
-      formData.append("petName", pendingFormData.petName);
-      formData.append("petType", pendingFormData.petType);
+      formData.append("homeId", home._id);
+      formData.append("hostEmail", home.email);
+      formData.append("requesterName", data.requesterName);
+      formData.append("requesterEmail", data.requesterEmail.toLowerCase());
+      formData.append("requesterPhone", data.requesterPhone);
+      formData.append("petName", data.petName);
+      formData.append("petType", data.petType);
 
-      if (pendingFormData.petAge) formData.append("petAge", pendingFormData.petAge);
-      if (pendingFormData.petSize) formData.append("petSize", pendingFormData.petSize);
-      if (pendingFormData.healthConditions) formData.append("healthConditions", pendingFormData.healthConditions);
-      if (pendingFormData.behavior) formData.append("behavior", pendingFormData.behavior);
-      if (pendingFormData.startDate) formData.append("startDate", pendingFormData.startDate);
-      if (pendingFormData.duration) formData.append("duration", pendingFormData.duration);
-      if (pendingFormData.message) formData.append("message", pendingFormData.message);
-
-      if (pendingImage) {
-        formData.append("petImage", pendingImage);
-      }
+      if (data.petAge) formData.append("petAge", data.petAge);
+      if (data.petSize) formData.append("petSize", data.petSize);
+      if (data.healthConditions) formData.append("healthConditions", data.healthConditions);
+      if (data.behavior) formData.append("behavior", data.behavior);
+      if (data.startDate) formData.append("startDate", data.startDate);
+      if (data.duration) formData.append("duration", data.duration);
+      if (data.message) formData.append("message", data.message);
+      if (data.petImage) formData.append("petImage", data.petImage);
 
       const response = await api.post("/solicitacoes", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      console.log("✅ Solicitação criada:", response.data);
       toast.success("Solicitação enviada com sucesso!");
-      setShowPasswordModal(false);
-      setTimeout(() => navigate("/solicitacoes-login"), 1200);
+      setTimeout(() => navigate("/lares"), 1500);
     } catch (error: any) {
-      console.error("❌ Erro ao enviar solicitação:", error);
+      console.error("Erro ao enviar solicitação:", error);
       toast.error(error.response?.data?.message || "Erro ao enviar solicitação");
     }
   };
 
-  if (!home) {
+  if (isLoading) {
     return (
       <>
         <Navbar />
@@ -191,35 +127,59 @@ const RequestStay: React.FC = () => {
     );
   }
 
+  if (!home) {
+    return (
+      <>
+        <Navbar />
+        <div className="container mx-auto px-4 py-8">
+          <p className="text-center">Lar não encontrado</p>
+          <Button onClick={() => navigate("/lares")} className="mt-4">
+            Voltar para listagem
+          </Button>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <Navbar />
-      <div className="container max-w-4xl mx-auto px-4 py-8">
-        <Button variant="ghost" onClick={() => navigate(-1)} className="mb-6">
+      <div className="container mx-auto px-4 py-8">
+        {/* ✅ BOTÃO VOLTAR MOVIDO PARA DENTRO DO CONTAINER */}
+        <Button 
+          variant="outline" 
+          onClick={() => navigate(-1)} 
+          className="mb-6"
+        >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Voltar
         </Button>
 
+        {/* Informações do Lar */}
         <Card className="mb-6">
           <CardHeader>
-            <p className="text-sm text-gray-600">Lar Temporário</p>
-            <CardTitle>{home.hostName} - {home.city}/{home.state}</CardTitle>
+            <CardTitle>Lar Temporário</CardTitle>
+            <CardDescription>
+              {home.hostName} - {home.city}/{home.state}
+            </CardDescription>
           </CardHeader>
         </Card>
 
+        {/* Formulário de Solicitação */}
         <Card>
           <CardHeader>
             <CardTitle>Solicitar Hospedagem</CardTitle>
-            <CardDescription>Preencha as informações sobre você e seu pet.</CardDescription>
+            <CardDescription>
+              Preencha as informações sobre você e seu pet.
+            </CardDescription>
           </CardHeader>
-
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 {/* Suas Informações */}
                 <div>
                   <h3 className="text-lg font-semibold mb-4">Suas Informações</h3>
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="requesterName"
@@ -241,15 +201,7 @@ const RequestStay: React.FC = () => {
                         <FormItem>
                           <FormLabel>E-mail *</FormLabel>
                           <FormControl>
-                            <Input
-                              type="email"
-                              placeholder="seu@email.com"
-                              {...field}
-                              onBlur={() => {
-                                field.onBlur();
-                                handleEmailBlur();
-                              }}
-                            />
+                            <Input type="email" placeholder="seu@email.com" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -299,7 +251,7 @@ const RequestStay: React.FC = () => {
                           <FormControl>
                             <RadioGroup
                               onValueChange={field.onChange}
-                              defaultValue={field.value}
+                              value={field.value}
                               className="flex gap-4"
                             >
                               <div className="flex items-center space-x-2">
@@ -317,7 +269,7 @@ const RequestStay: React.FC = () => {
                       )}
                     />
 
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
                         name="petAge"
@@ -356,7 +308,6 @@ const RequestStay: React.FC = () => {
                           <FormControl>
                             <Textarea
                               placeholder="Alguma condição de saúde especial?"
-                              rows={3}
                               {...field}
                             />
                           </FormControl>
@@ -373,8 +324,7 @@ const RequestStay: React.FC = () => {
                           <FormLabel>Comportamento</FormLabel>
                           <FormControl>
                             <Textarea
-                              placeholder="Como é o comportamento do seu pet?"
-                              rows={3}
+                              placeholder="Descreva o comportamento do seu pet"
                               {...field}
                             />
                           </FormControl>
@@ -383,36 +333,84 @@ const RequestStay: React.FC = () => {
                       )}
                     />
 
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="startDate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Data de Início</FormLabel>
+                            <FormControl>
+                              <Input type="date" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="duration"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Duração Estimada</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ex: 2 semanas" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="message"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Mensagem Adicional</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Alguma informação adicional que gostaria de compartilhar?"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Upload de Foto do Pet */}
                     <FormField
                       control={form.control}
                       name="petImage"
-                      render={({ field: { onChange, value, ...restField } }) => (
+                      render={({ field: { onChange, value, ...field } }) => (
                         <FormItem>
-                          <FormLabel>Foto do Pet</FormLabel>
+                          <FormLabel>Foto do Pet (Opcional)</FormLabel>
                           <FormControl>
                             <>
                               <div
-                                className="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-primary transition-colors"
+                                className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-orange-500 transition-colors"
                                 onClick={() => document.getElementById('petImageUpload')?.click()}
                               >
                                 {imagePreview ? (
                                   <img
                                     src={imagePreview}
-                                    alt="Preview"
+                                    alt="Preview do pet"
                                     className="mx-auto max-h-48 rounded"
                                   />
                                 ) : (
-                                  <div className="space-y-2">
-                                    <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                                    <p className="text-sm text-gray-600">Clique para fazer upload</p>
+                                  <div className="flex flex-col items-center gap-2 text-gray-500">
+                                    <Upload className="h-8 w-8" />
+                                    <p className="text-sm">Clique para fazer upload</p>
                                   </div>
                                 )}
                               </div>
                               <input
                                 id="petImageUpload"
                                 type="file"
-                                accept="image/*"
                                 className="hidden"
+                                accept="image/*"
                                 onChange={(e) => {
                                   const file = e.target.files?.[0];
                                   if (file) {
@@ -420,6 +418,7 @@ const RequestStay: React.FC = () => {
                                     setImagePreview(URL.createObjectURL(file));
                                   }
                                 }}
+                                {...field}
                               />
                             </>
                           </FormControl>
@@ -430,140 +429,16 @@ const RequestStay: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Detalhes da Estadia */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Detalhes da Estadia</h3>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <FormField
-                      control={form.control}
-                      name="startDate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Data de Início</FormLabel>
-                          <FormControl>
-                            <Input type="date" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="duration"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Duração</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Ex: 2 semanas" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="message"
-                    render={({ field }) => (
-                      <FormItem className="mt-4">
-                        <FormLabel>Mensagem Adicional</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Alguma informação adicional que gostaria de compartilhar?"
-                            rows={4}
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
                 <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-                  {form.formState.isSubmitting ? "Enviando..." : "Continuar"}
+                  {form.formState.isSubmitting ? "Enviando..." : "Enviar Solicitação"}
                 </Button>
               </form>
             </Form>
           </CardContent>
         </Card>
       </div>
-
-      {/* Modal de Senha */}
-      <Dialog open={showPasswordModal} onOpenChange={setShowPasswordModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{isNewTutor ? "Criar Senha" : "Digite sua Senha"}</DialogTitle>
-            <DialogDescription>
-              {isNewTutor
-                ? "Como esta é sua primeira solicitação, crie uma senha para gerenciar suas hospedagens."
-                : "Você já possui solicitações. Digite sua senha para enviar uma nova solicitação."}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Digite sua senha"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
-
-            {isNewTutor && (
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirmar Senha</Label>
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirme sua senha"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPasswordModal(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handlePasswordSubmit}>
-              {isNewTutor ? "Enviar Solicitação" : "Autenticar e Enviar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 };
 
 export default RequestStay;
-
