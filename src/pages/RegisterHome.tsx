@@ -52,8 +52,6 @@ type RegisterHomeForm = z.infer<typeof registerHomeSchema>;
 const RegisterHome: React.FC = () => {
   const navigate = useNavigate();
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  
-  // ✅ Estados para modal de senha
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [isNewUser, setIsNewUser] = useState(false);
   const [password, setPassword] = useState("");
@@ -79,19 +77,15 @@ const RegisterHome: React.FC = () => {
     toast.error("Por favor, preencha todos os campos obrigatórios");
   };
 
-  // ✅ Verificar se email existe ao sair do campo
   const handleEmailBlur = async () => {
     const email = getValues("email");
     if (!email) return;
 
     try {
       const response = await api.get(`/lares/check-email/${email.toLowerCase()}`);
-      
       if (response.data.exists) {
-        // Email já existe - pedir senha existente
         setIsNewUser(false);
       } else {
-        // Email novo - pedir cadastro de senha
         setIsNewUser(true);
       }
     } catch (error) {
@@ -99,18 +93,15 @@ const RegisterHome: React.FC = () => {
     }
   };
 
-  // ✅ Ao submeter o formulário, abrir modal de senha
   const onSubmit = async (data: RegisterHomeForm) => {
     console.log("✅ FORMULÁRIO VÁLIDO! Abrindo modal de senha...");
     setPendingFormData(data);
     setShowPasswordModal(true);
   };
 
-  // ✅ Processar cadastro com senha
   const handlePasswordSubmit = async () => {
     if (!pendingFormData) return;
 
-    // Validar senha
     if (isNewUser) {
       if (password.length < 6) {
         toast.error("A senha deve ter no mínimo 6 caracteres");
@@ -121,7 +112,6 @@ const RegisterHome: React.FC = () => {
         return;
       }
     } else {
-      // Autenticar com senha existente
       try {
         const authResponse = await api.post('/lares/authenticate', {
           email: pendingFormData.email.toLowerCase(),
@@ -141,13 +131,11 @@ const RegisterHome: React.FC = () => {
       }
     }
 
-    // Continuar com o cadastro
     try {
       const formData = new FormData();
-      
       formData.append("hostName", pendingFormData.name);
       formData.append("email", pendingFormData.email.toLowerCase());
-      formData.append("password", password); // ✅ Adicionar senha
+      formData.append("password", password);
       formData.append("phone", pendingFormData.phone);
       formData.append("address", pendingFormData.address);
       formData.append("city", pendingFormData.city);
@@ -155,28 +143,27 @@ const RegisterHome: React.FC = () => {
       formData.append("capacity", String(pendingFormData.capacity));
       formData.append("hasYard", String(Boolean(pendingFormData.hasYard)));
       formData.append("hasFence", String(Boolean(pendingFormData.hasFence)));
-      
+
       if (pendingFormData.experience) formData.append("experience", pendingFormData.experience);
       if (pendingFormData.description) formData.append("description", pendingFormData.description);
-      
+
       const availableFor: string[] = [];
       if (pendingFormData.acceptsDogs) availableFor.push("Cães");
       if (pendingFormData.acceptsCats) availableFor.push("Gatos");
       if (pendingFormData.acceptsLargeDogs) availableFor.push("Cães de Grande Porte");
       if (pendingFormData.acceptsPuppies) availableFor.push("Filhotes");
-      
+
       availableFor.forEach((item) => {
         formData.append("availableFor", item);
       });
-      
+
       formData.append("image", pendingFormData.image);
-      
+
       const response = await api.post("/lares", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      
+
       console.log("✅ Sucesso! Resposta:", response.data);
-      
       toast.success("Lar cadastrado com sucesso!");
       setShowPasswordModal(false);
       setTimeout(() => navigate("/lares"), 1200);
@@ -197,43 +184,34 @@ const RegisterHome: React.FC = () => {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 py-12 px-4">
-        <div className="max-w-4xl mx-auto">
-          <Button
-            variant="ghost"
-            onClick={() => navigate(-1)}
-            className="mb-6"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar
-          </Button>
+      <div className="container max-w-4xl mx-auto px-4 py-8">
+        <Button variant="ghost" onClick={() => navigate(-1)} className="mb-6">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Voltar
+        </Button>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Home className="h-6 w-6" />
-                Cadastrar Lar Temporário
-              </CardTitle>
-              <CardDescription>
-                Preencha as informações para oferecer um lar temporário.
-              </CardDescription>
-            </CardHeader>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Home className="h-6 w-6" />
+              Cadastrar Lar Temporário
+            </CardTitle>
+            <CardDescription>
+              Preencha as informações para oferecer um lar temporário.
+            </CardDescription>
+          </CardHeader>
 
-            <CardContent>
-              <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-8">
-                {/* Informações Pessoais */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Suas Informações</h3>
-                  
+          <CardContent>
+            <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
+              {/* Informações Pessoais */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Suas Informações</h3>
+                <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="name">Nome Completo *</Label>
-                    <Input
-                      id="name"
-                      {...register("name")}
-                      placeholder="Seu nome"
-                    />
+                    <Input id="name" {...register("name")} placeholder="Seu nome" />
                     {errors.name && (
-                      <p className="text-sm text-destructive">{errors.name.message}</p>
+                      <p className="text-sm text-red-500">{errors.name.message}</p>
                     )}
                   </div>
 
@@ -247,86 +225,71 @@ const RegisterHome: React.FC = () => {
                       placeholder="seu@email.com"
                     />
                     {errors.email && (
-                      <p className="text-sm text-destructive">{errors.email.message}</p>
+                      <p className="text-sm text-red-500">{errors.email.message}</p>
                     )}
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="phone">Telefone *</Label>
-                    <Input
-                      id="phone"
-                      {...register("phone")}
-                      placeholder="(00) 00000-0000"
-                    />
+                    <Input id="phone" {...register("phone")} placeholder="(00) 00000-0000" />
                     {errors.phone && (
-                      <p className="text-sm text-destructive">{errors.phone.message}</p>
+                      <p className="text-sm text-red-500">{errors.phone.message}</p>
                     )}
                   </div>
                 </div>
+              </div>
 
-                {/* Endereço */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Endereço</h3>
-                  
-                  <div className="space-y-2">
+              {/* Endereço */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Endereço</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="address">Endereço *</Label>
-                    <Input
-                      id="address"
-                      {...register("address")}
-                      placeholder="Rua, número"
-                    />
+                    <Input id="address" {...register("address")} placeholder="Rua, número" />
                     {errors.address && (
-                      <p className="text-sm text-destructive">{errors.address.message}</p>
+                      <p className="text-sm text-red-500">{errors.address.message}</p>
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="city">Cidade *</Label>
-                      <Input
-                        id="city"
-                        {...register("city")}
-                        placeholder="Cidade"
-                      />
-                      {errors.city && (
-                        <p className="text-sm text-destructive">{errors.city.message}</p>
-                      )}
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="city">Cidade *</Label>
+                    <Input id="city" {...register("city")} placeholder="Cidade" />
+                    {errors.city && (
+                      <p className="text-sm text-red-500">{errors.city.message}</p>
+                    )}
+                  </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="state">Estado *</Label>
-                      <Input
-                        id="state"
-                        {...register("state")}
-                        placeholder="UF"
-                        maxLength={2}
-                      />
-                      {errors.state && (
-                        <p className="text-sm text-destructive">{errors.state.message}</p>
-                      )}
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="state">Estado *</Label>
+                    <Input id="state" {...register("state")} placeholder="SP" maxLength={2} />
+                    {errors.state && (
+                      <p className="text-sm text-red-500">{errors.state.message}</p>
+                    )}
                   </div>
                 </div>
+              </div>
 
-                {/* Sobre o Lar */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Sobre o Lar</h3>
-                  
+              {/* Sobre o Lar */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Sobre o Lar</h3>
+                <div className="grid gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="capacity">Capacidade (pets) *</Label>
                     <Input
                       id="capacity"
                       type="number"
                       {...register("capacity")}
-                      placeholder="Quantos pets pode receber?"
+                      min={1}
+                      max={20}
+                      placeholder="Quantos pets pode hospedar?"
                     />
                     {errors.capacity && (
-                      <p className="text-sm text-destructive">{errors.capacity.message}</p>
+                      <p className="text-sm text-red-500">{errors.capacity.message}</p>
                     )}
                   </div>
 
-                  <div className="space-y-3">
-                    <Label>Características</Label>
+                  <div>
+                    <Label className="mb-3 block">Características</Label>
                     <div className="space-y-2">
                       <div className="flex items-center space-x-2">
                         <Controller
@@ -340,7 +303,7 @@ const RegisterHome: React.FC = () => {
                             />
                           )}
                         />
-                        <Label htmlFor="hasYard" className="font-normal">
+                        <Label htmlFor="hasYard" className="cursor-pointer">
                           Possui quintal
                         </Label>
                       </div>
@@ -357,15 +320,15 @@ const RegisterHome: React.FC = () => {
                             />
                           )}
                         />
-                        <Label htmlFor="hasFence" className="font-normal">
+                        <Label htmlFor="hasFence" className="cursor-pointer">
                           Quintal cercado
                         </Label>
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <Label>Aceita</Label>
+                  <div>
+                    <Label className="mb-3 block">Aceita</Label>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="flex items-center space-x-2">
                         <Controller
@@ -379,7 +342,7 @@ const RegisterHome: React.FC = () => {
                             />
                           )}
                         />
-                        <Label htmlFor="acceptsDogs" className="font-normal">
+                        <Label htmlFor="acceptsDogs" className="cursor-pointer">
                           Cães
                         </Label>
                       </div>
@@ -396,7 +359,7 @@ const RegisterHome: React.FC = () => {
                             />
                           )}
                         />
-                        <Label htmlFor="acceptsCats" className="font-normal">
+                        <Label htmlFor="acceptsCats" className="cursor-pointer">
                           Gatos
                         </Label>
                       </div>
@@ -413,7 +376,7 @@ const RegisterHome: React.FC = () => {
                             />
                           )}
                         />
-                        <Label htmlFor="acceptsLargeDogs" className="font-normal">
+                        <Label htmlFor="acceptsLargeDogs" className="cursor-pointer">
                           Cães de Grande Porte
                         </Label>
                       </div>
@@ -430,7 +393,7 @@ const RegisterHome: React.FC = () => {
                             />
                           )}
                         />
-                        <Label htmlFor="acceptsPuppies" className="font-normal">
+                        <Label htmlFor="acceptsPuppies" className="cursor-pointer">
                           Filhotes
                         </Label>
                       </div>
@@ -443,6 +406,7 @@ const RegisterHome: React.FC = () => {
                       id="experience"
                       {...register("experience")}
                       placeholder="Conte sobre sua experiência com animais"
+                      rows={3}
                     />
                   </div>
 
@@ -451,40 +415,42 @@ const RegisterHome: React.FC = () => {
                     <Textarea
                       id="description"
                       {...register("description")}
-                      placeholder="Descreva seu lar e o ambiente"
+                      placeholder="Descreva seu espaço e o que pode oferecer"
+                      rows={4}
                     />
                   </div>
                 </div>
+              </div>
 
-                {/* Upload de Imagem */}
-                <div className="space-y-4">
-                  <Label>Foto do Espaço *</Label>
+              {/* Upload de Imagem */}
+              <div>
+                <Label htmlFor="imageUpload">Foto do Espaço *</Label>
+                <div className="mt-2">
                   <Controller
                     name="image"
                     control={control}
-                    render={({ field: { onChange, value, ...field } }) => (
+                    render={({ field: { onChange, value, ...restField } }) => (
                       <>
                         <div
-                          className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors"
+                          className="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-primary transition-colors"
                           onClick={() => document.getElementById('imageUpload')?.click()}
                         >
                           {imagePreview ? (
                             <img
                               src={imagePreview}
                               alt="Preview"
-                              className="max-h-64 mx-auto rounded"
+                              className="mx-auto max-h-64 rounded"
                             />
                           ) : (
                             <div className="space-y-2">
-                              <Upload className="h-12 w-12 mx-auto text-muted-foreground" />
-                              <p className="text-sm text-muted-foreground">
+                              <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                              <p className="text-sm text-gray-600">
                                 Clique para fazer upload
                               </p>
                             </div>
                           )}
                         </div>
                         <input
-                          {...field}
                           id="imageUpload"
                           type="file"
                           accept="image/*"
@@ -501,28 +467,28 @@ const RegisterHome: React.FC = () => {
                     )}
                   />
                   {errors.image && (
-                    <p className="text-sm text-destructive">{errors.image.message}</p>
+                    <p className="text-sm text-red-500 mt-1">
+                      {String(errors.image.message)}
+                    </p>
                   )}
                 </div>
+              </div>
 
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? "Processando..." : "Continuar"}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? "Processando..." : "Continuar"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* ✅ MODAL DE SENHA */}
+      {/* Modal de Senha */}
       <Dialog open={showPasswordModal} onOpenChange={setShowPasswordModal}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {isNewUser ? "Criar Senha" : "Digite sua Senha"}
-            </DialogTitle>
+            <DialogTitle>{isNewUser ? "Criar Senha" : "Digite sua Senha"}</DialogTitle>
             <DialogDescription>
-              {isNewUser 
+              {isNewUser
                 ? "Como este é seu primeiro lar, crie uma senha para gerenciar suas propriedades."
                 : "Você já possui lares cadastrados. Digite sua senha para adicionar um novo lar."}
             </DialogDescription>
