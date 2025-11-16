@@ -44,57 +44,44 @@ interface Lar {
   description?: string;
   imageUrl?: string;
   isActive: boolean;
+  createdAt: string;
 }
 
-const SolicitacoesList: React.FC = () => {
+const SolicitacoesList = () => {
   const navigate = useNavigate();
+  const email = localStorage.getItem("userEmail") || "";
   const [solicitacoes, setSolicitacoes] = useState<Solicitacao[]>([]);
-  const [meusLares, setMeusLares] = useState<Lar[]>([]);
+  const [lares, setLares] = useState<Lar[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [userEmail, setUserEmail] = useState<string>("");
-  const [userType, setUserType] = useState<"host" | "tutor" | null>(null);
+  const [activeTab, setActiveTab] = useState<"solicitacoes" | "lares">("solicitacoes");
 
   useEffect(() => {
-    const email = localStorage.getItem("userEmail");
-    const type = localStorage.getItem("userType") as "host" | "tutor" | null;
-
-    if (!email || !type) {
-      toast.error("Você precisa fazer login primeiro");
+    if (!email) {
+      toast.error("Sessão expirada. Faça login novamente.");
       navigate("/solicitacoes-login");
       return;
     }
 
-    setUserEmail(email);
-    setUserType(type);
-    fetchData(email, type);
-  }, [navigate]);
+    fetchData();
+  }, [email, navigate]);
 
-  const fetchData = async (email: string, type: "host" | "tutor") => {
-    setIsLoading(true);
+  const fetchData = async () => {
     try {
-      const solicitacoesResponse = await api.get(`/solicitacoes/email/${email}`);
-      setSolicitacoes(solicitacoesResponse.data.data || []);
+      setIsLoading(true);
 
-      if (type === "host") {
-        try {
-          const laresResponse = await api.get(`/lares/email/${email}`);
-          const lares = laresResponse.data.data;
-          
-          if (lares && !Array.isArray(lares)) {
-            setMeusLares([lares]);
-          } else {
-            setMeusLares(lares || []);
-          }
-        } catch (error: any) {
-          if (error.response?.status !== 404) {
-            console.error("Erro ao buscar lares:", error);
-          }
-          setMeusLares([]);
-        }
-      }
+      // Buscar solicitações
+      const solicitacoesResponse = await api.get(`/solicitacoes/email/${email}`);
+      const solicitacoesData = solicitacoesResponse.data.data || solicitacoesResponse.data || [];
+      setSolicitacoes(Array.isArray(solicitacoesData) ? solicitacoesData : []);
+
+      // Buscar lares
+      const laresResponse = await api.get(`/lares/email/${email}`);
+      const laresData = laresResponse.data.data || laresResponse.data || [];
+      setLares(Array.isArray(laresData) ? laresData : []);
+
     } catch (error: any) {
-      console.error("Erro ao buscar dados:", error);
-      toast.error("Erro ao carregar suas solicitações");
+      console.error("Erro ao carregar dados:", error);
+      toast.error("Erro ao carregar seus dados");
     } finally {
       setIsLoading(false);
     }
@@ -102,42 +89,43 @@ const SolicitacoesList: React.FC = () => {
 
   const handleLogout = () => {
     localStorage.removeItem("userEmail");
-    localStorage.removeItem("userType");
     toast.success("Logout realizado com sucesso");
-    navigate("/solicitacoes-login");
+    navigate("/");
   };
 
-  // ✅ ATIVAR/DESATIVAR LAR
-  const handleToggleActive = async (larId: string, isCurrentlyActive: boolean) => {
+  const handleToggleActive = async (larId: string, isActive: boolean) => {
     try {
       await api.patch(`/lares/${larId}/toggle-active`);
+      toast.success(`Lar ${isActive ? "desativado" : "ativado"} com sucesso`);
       
-      setMeusLares(prev => 
-        prev.map(lar => 
-          lar._id === larId ? { ...lar, isActive: !isCurrentlyActive } : lar
+      // Atualizar estado local
+      setLares(prevLares =>
+        prevLares.map(lar =>
+          lar._id === larId || lar.id === larId
+            ? { ...lar, isActive: !isActive }
+            : lar
         )
       );
-
-      toast.success(isCurrentlyActive ? "Lar desativado com sucesso" : "Lar ativado com sucesso");
-    } catch (error) {
-      console.error("Erro ao alternar status do lar:", error);
+    } catch (error: any) {
+      console.error("Erro ao alterar status:", error);
       toast.error("Erro ao alterar status do lar");
     }
   };
 
   const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      pending: { label: "Pendente", variant: "secondary" as const },
-      approved: { label: "Aprovada", variant: "default" as const },
-      rejected: { label: "Negada", variant: "destructive" as const },
-    };
-
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
-    return <Badge variant={config.variant}>{config.label}</Badge>;
+    switch (status) {
+      case "pending":
+        return <Badge variant="outline" className="bg-yellow-50">Pendente</Badge>;
+      case "approved":
+        return <Badge variant="outline" className="bg-green-50 text-green-700">Aceita</Badge>;
+      case "rejected":
+        return <Badge variant="outline" className="bg-red-50 text-red-700">Negada</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
   };
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "Não informado";
+  const formatDate = (dateString: string) => {
     try {
       return new Date(dateString).toLocaleDateString("pt-BR");
     } catch {
@@ -145,18 +133,12 @@ const SolicitacoesList: React.FC = () => {
     }
   };
 
-  const isTutor = userType === "tutor";
-  const isHost = userType === "host";
-
   if (isLoading) {
     return (
       <>
         <Navbar />
-        <div className="min-h-screen flex items-center justify-center pt-20">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Carregando solicitações...</p>
-          </div>
+        <div className="container mx-auto px-4 py-8">
+          <p className="text-center">Carregando...</p>
         </div>
       </>
     );
@@ -165,177 +147,204 @@ const SolicitacoesList: React.FC = () => {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 pt-24 pb-12 px-4">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <Button variant="ghost" onClick={() => navigate("/")}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Voltar
-            </Button>
-
-            <div className="flex items-center gap-2">
-              <Badge variant="outline">
-                {isTutor ? "👤 Tutor" : "🏠 Anfitrião"}
-              </Badge>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Sair
-              </Button>
-            </div>
-          </div>
-
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle className="text-2xl">Minhas Solicitações</CardTitle>
-              <CardDescription>
-                {isTutor
-                  ? "Acompanhe o status das suas solicitações de hospedagem"
-                  : "Gerencie as solicitações recebidas para seus lares"}
-              </CardDescription>
-              <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                <Mail className="h-4 w-4" />
-                <span>{userEmail}</span>
-              </div>
-            </CardHeader>
-          </Card>
-
-          {/* Lares do Anfitrião */}
-          {isHost && meusLares.length > 0 && (
-            <div className="mb-8">
-              <h2 className="text-xl font-semibold mb-4">Meus Lares</h2>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {meusLares.map((lar) => (
-                  <Card key={lar._id}>
-                    <CardHeader>
-                      <CardTitle className="text-lg">{lar.hostName}</CardTitle>
-                      <CardDescription>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <MapPin className="h-3 w-3" />
-                            {lar.city}, {lar.state}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-3 w-3" />
-                            {lar.phone}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Users className="h-3 w-3" />
-                            Capacidade: {lar.capacity} pet(s)
-                          </div>
-                        </div>
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between mb-3">
-                        <Badge variant={lar.isActive ? "default" : "secondary"}>
-                          {lar.isActive ? "🟢 Ativo" : "🔴 Inativo"}
-                        </Badge>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => navigate(`/editar-lar/${lar._id}?email=${encodeURIComponent(userEmail)}`)}
-                        >
-                          <Edit className="h-4 w-4 mr-2" />
-                          Editar
-                        </Button>
-                        <Button
-                          variant={lar.isActive ? "destructive" : "default"}
-                          size="sm"
-                          onClick={() => handleToggleActive(lar._id, lar.isActive)}
-                        >
-                          <Power className="h-4 w-4 mr-2" />
-                          {lar.isActive ? "Desativar" : "Ativar"}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-              <Separator className="my-8" />
-            </div>
-          )}
-
-          {/* Lista de Solicitações */}
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-semibold mb-4">
-              {isTutor ? "Solicitações Enviadas" : "Solicitações Recebidas"}
-            </h2>
+            <h1 className="text-3xl font-bold">Minhas Solicitações e Lares</h1>
+            <p className="text-gray-600">{email}</p>
+          </div>
+          <Button variant="outline" onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Sair
+          </Button>
+        </div>
 
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6">
+          <Button
+            variant={activeTab === "solicitacoes" ? "default" : "outline"}
+            onClick={() => setActiveTab("solicitacoes")}
+          >
+            Minhas Solicitações ({solicitacoes.length})
+          </Button>
+          <Button
+            variant={activeTab === "lares" ? "default" : "outline"}
+            onClick={() => setActiveTab("lares")}
+          >
+            Meus Lares ({lares.length})
+          </Button>
+        </div>
+
+        {/* Conteúdo - Solicitações */}
+        {activeTab === "solicitacoes" && (
+          <div className="space-y-4">
             {solicitacoes.length === 0 ? (
               <Card>
-                <CardContent className="text-center py-12">
-                  <p className="text-muted-foreground mb-4">
-                    Você ainda não {isTutor ? "enviou" : "recebeu"} nenhuma solicitação
+                <CardContent className="p-8 text-center">
+                  <p className="text-gray-500 mb-4">
+                    Você ainda não fez nenhuma solicitação de hospedagem.
                   </p>
-                  {isTutor && (
-                    <Button onClick={() => navigate("/lares")}>
-                      Buscar Lares Disponíveis
-                    </Button>
-                  )}
+                  <Button onClick={() => navigate("/lares")}>
+                    Procurar Lares Temporários
+                  </Button>
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-4">
-                {solicitacoes.map((solicitacao) => (
-                  <Card
-                    key={solicitacao.id}
-                    className="hover:shadow-lg transition-shadow cursor-pointer"
-                    onClick={() => navigate(`/solicitacoes/${solicitacao.id}`)}
-                  >
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-lg flex items-center gap-2">
-                            {solicitacao.petType === "dog" ? "🐕" : "🐱"} {solicitacao.petName}
-                            {getStatusBadge(solicitacao.status)}
-                          </CardTitle>
-                          <CardDescription className="mt-2">
-                            {isTutor
-                              ? `Solicitação enviada para um lar`
-                              : `Solicitado por ${solicitacao.requesterName}`}
-                          </CardDescription>
-                        </div>
+              solicitacoes.map((solicitacao) => (
+                <Card key={solicitacao.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3 className="text-xl font-semibold mb-1">
+                          Pet: {solicitacao.petName}
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          {solicitacao.petType === "dog" ? "Cão" : "Gato"}
+                          {solicitacao.petSize && ` • ${solicitacao.petSize}`}
+                          {solicitacao.petAge && ` • ${solicitacao.petAge}`}
+                        </p>
                       </div>
-                    </CardHeader>
+                      {getStatusBadge(solicitacao.status)}
+                    </div>
 
-                    <CardContent>
-                      <div className="grid gap-2 text-sm">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Mail className="h-4 w-4" />
-                          {isTutor ? solicitacao.hostEmail : solicitacao.requesterEmail}
-                        </div>
-                        {!isTutor && (
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Phone className="h-4 w-4" />
-                            {solicitacao.requesterPhone}
-                          </div>
-                        )}
-                        {solicitacao.startDate && (
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Calendar className="h-4 w-4" />
-                            Início: {formatDate(solicitacao.startDate)}
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2 text-muted-foreground">
+                    <div className="grid md:grid-cols-2 gap-4 mb-4">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Mail className="h-4 w-4" />
+                        <span>Anfitrião: {solicitacao.hostEmail}</span>
+                      </div>
+
+                      {solicitacao.startDate && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
                           <Calendar className="h-4 w-4" />
-                          Enviada em: {formatDate(solicitacao.createdAt)}
+                          <span>Início: {formatDate(solicitacao.startDate)}</span>
                         </div>
-                      </div>
+                      )}
 
-                      <Button className="w-full mt-4" variant="outline">
-                        <Eye className="mr-2 h-4 w-4" />
-                        Ver Detalhes
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                      {solicitacao.duration && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Users className="h-4 w-4" />
+                          <span>Duração: {solicitacao.duration}</span>
+                        </div>
+                      )}
+
+                      <div className="text-sm text-gray-500">
+                        Enviada em {formatDate(solicitacao.createdAt)}
+                      </div>
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(`/solicitacao/${solicitacao.id}`)}
+                    >
+                      <Eye className="mr-2 h-4 w-4" />
+                      Ver Detalhes
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))
             )}
           </div>
-        </div>
+        )}
+
+        {/* Conteúdo - Lares */}
+        {activeTab === "lares" && (
+          <div className="space-y-4">
+            {lares.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <p className="text-gray-500 mb-4">
+                    Você ainda não cadastrou nenhum lar temporário.
+                  </p>
+                  <Button onClick={() => navigate("/cadastrar")}>
+                    Cadastrar Lar Temporário
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              lares.map((lar) => (
+                <Card key={lar._id || lar.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3 className="text-xl font-semibold mb-1">
+                          Casa de {lar.hostName}
+                        </h3>
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <MapPin className="h-4 w-4" />
+                          <span>{lar.city}, {lar.state}</span>
+                        </div>
+                      </div>
+                      <Badge variant={lar.isActive ? "default" : "secondary"}>
+                        {lar.isActive ? "Ativo" : "Inativo"}
+                      </Badge>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4 mb-4">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Users className="h-4 w-4" />
+                        <span>Capacidade: {lar.capacity} pets</span>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Mail className="h-4 w-4" />
+                        <span>{lar.email}</span>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Phone className="h-4 w-4" />
+                        <span>{lar.phone}</span>
+                      </div>
+                    </div>
+
+                    {lar.availableFor && lar.availableFor.length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-sm text-gray-500 mb-2">Aceita:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {lar.availableFor.map((type, idx) => (
+                            <Badge key={idx} variant="outline">
+                              {type}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/editar/${lar._id || lar.id}?email=${email}`)}
+                      >
+                        <Edit className="mr-2 h-4 w-4" />
+                        Editar
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleToggleActive(lar._id || lar.id, lar.isActive)}
+                      >
+                        <Power className="mr-2 h-4 w-4" />
+                        {lar.isActive ? "Desativar" : "Ativar"}
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/lar/${lar._id || lar.id}`)}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Ver Página
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        )}
       </div>
     </>
   );
